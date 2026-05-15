@@ -10,7 +10,7 @@
     // See also https://aka.ms/tsconfig/module
     "module": "commonjs",
     "target": "es2020",
-    "types": ["node"],
+    "types": ["node", "jest"],
     "lib": [
       "ES2020"
     ],

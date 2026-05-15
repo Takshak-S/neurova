@@ -12,7 +12,7 @@ export const authMiddleware = async (
     req: Request,
     res:Response,
     next: NextFunction
-):Promise<void>{
+):Promise<void> => {
     //Standard Bearer token format: "Authorization: Bearer <token>"
     const authHeader = req.headers.authorization;
 

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {authController} from "../controllers/auth.controller";
 import {validate, sendOTPSchema, verifyOTPSchema} from "../middleware/validate.middleware";
-import {otpRateLimitMiddleware} from "../middleware/rateLimit.middleware";
+import {otpRateLimitMiddleware} from "../middleware/ratelimit.middleware";
 import {authMiddleware} from "../middleware/auth.middleware";
 import {asyncHandler} from "../utils/asyncHandler";
 

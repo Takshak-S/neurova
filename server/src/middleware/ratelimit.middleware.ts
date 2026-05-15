@@ -13,7 +13,7 @@ import {ApiError} from "../utils/ApiError";
 // Value: request count (auto-incremented)
 // TTL: OTP_RATE_LIMIT_WINDOW_MINUTES (default: 10 minutes)
 
-export const optRateLimitMiddleware = async (
+export const otpRateLimitMiddleware = async (
     req:Request,
     res:Response,
     next:NextFunction
@@ -39,9 +39,9 @@ export const optRateLimitMiddleware = async (
   const remaining = Math.max(0,env.otp.rateLimitMaxRequests-count);
   const ttl=await redisClient.ttl(key);
 
-  res.setHeader("X-RateLimit-Limit",env.otp.rateLimitMaxRequests);
-  res.setHeader("X-RateLimit-Remaining",remaining);
-  res.setHeader("X-RateLimit-Reset",Date.now()+ttl*1000);
+  res.setHeader("x-RateLimit-Limit",env.otp.rateLimitMaxRequests);
+  res.setHeader("x-RateLimit-Remaining",remaining);
+  res.setHeader("x-RateLimit-Reset",Date.now()+ttl*1000);
 
   if (count>env.otp.rateLimitMaxRequests){
     next(ApiError.tooManyRequests(

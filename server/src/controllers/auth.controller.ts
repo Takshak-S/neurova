@@ -30,7 +30,7 @@ export const authController = {
   },
   // POST /auth/verify-otp
   // Verifies the OTP. On success, creates the user if new and returns a JWT.
-  async verityOTP(req:Request, res:Response):Promise<void> {
+  async verifyOTP(req:Request, res:Response):Promise<void> {
     const {phone, otp} = req.body; // validated by verifyOTPSchema middleware
 
     // Throws ApiError if invalid — caught by error middleware
