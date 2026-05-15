@@ -1,141 +1,101 @@
-import { Request, Response } from "express";
-import OTP from "../models/OTPSchema.model";
-import User from "../models/User.model";
-import { generateOTP, hashOTP, compareOTP } from "../services/otp.service";
-import { sendOTPviaSMS } from "../services/sms.service";
-import { checkOTPRateLimit } from "../services/rateLimit.service";
-import { signToken } from "../utils/jwt.utils";
+import {Request, Response} from "express";
+import {otpService} from "../services/otp.service";
+import {smsService} from "../services/sms.service";
+import {tokenService} from "../services/token.service";
+import UserModel from "../models/User.model";
+import {ApiResponse} from "../utils/ApiResponse";
 
-const OTP_EXPIRY_MINUTES = 5;
-const MAX_VERIFY_ATTEMPTS = 5;
+// Controllers are intentionally thin.
+// They handle HTTP concerns (req, res) and delegate ALL business logic to services.
+// Rule of thumb: if a controller method exceeds ~20 lines, move logic to a service.
 
-/**
- * POST /auth/send-otp
- * Body: { phone: string }
- */
-export const sendOTP = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { phone } = req.body;
+export const authController = {
+  // POST /auth/send-otp
+  // Generates an OTP and sends it via SMS.
+  // Rate limiting and validation happen in middleware before this runs.
 
-        if (!phone) {
-            res.status(400).json({ message: "Phone number is required" });
-            return;
+  async sendOTP(req:Request,res:Response): Promise<void> {
+    const {phone} = req.body;
+
+    const rawOTP = await otpService.createOTP(phone);
+
+    await smsService.sendOTP(phone,rawOTP);
+
+    res.status(200).json(
+        new ApiResponse("OTP sent successfully", {
+            phone,
+            expiresInMinutes: 10,
+        })
+    );
+  },
+  // POST /auth/verify-otp
+  // Verifies the OTP. On success, creates the user if new and returns a JWT.
+  async verityOTP(req:Request, res:Response):Promise<void> {
+    const {phone, otp} = req.body; // validated by verifyOTPSchema middleware
+
+    // Throws ApiError if invalid — caught by error middleware
+    await otpService.verifyOTP(phone,otp);
+
+    // Find existing user or create a new one.
+    // findOneAndUpdate with upsert:true is atomic — safe against race conditions
+    // where two requests try to create the same user simultaneously.
+    const user = await UserModel.findOneAndUpdate(
+        {phone},
+        { $setOnInsert : {phone}}, // only set phone on INSERT, not on UPDATE
+        {
+            upsert: true, // create if doesn't exist
+            new: true, // return the document after update
+            setDefaultsOnInsert: true, // apply schema defaults on insert
         }
+    );
 
-        // 1. Rate-limit check (Redis)
-        const rateLimit = await checkOTPRateLimit(phone);
-        if (!rateLimit.allowed) {
-            res.status(429).json({
-                message: "Too many OTP requests. Please try again later.",
-                retryAfter: rateLimit.retryAfter,
-            });
-            return;
-        }
+    const token = tokenService.sign(user!._id, user!.phone);
 
-        // 2. Generate & hash OTP
-        const rawOTP = generateOTP();
-        const hashedOTP = await hashOTP(rawOTP);
+    const isNewUser = !user!.name; //new users haven't set a name yet
 
-        // 3. Upsert OTP document (one active OTP per phone)
-        const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-
-        await OTP.findOneAndUpdate(
-            { phone },
-            {
-                otp: hashedOTP,
-                expiresAt,
-                attempts: 0,
-            },
-            { upsert: true, new: true }
-        );
-
-        // 4. Send raw OTP via SMS (Twilio)
-        await sendOTPviaSMS(phone, rawOTP);
-
-        // 5. Respond
-        res.status(200).json({
-            message: "OTP sent successfully",
-            expiresIn: OTP_EXPIRY_MINUTES * 60, // seconds
-        });
-    } catch (error) {
-        console.error("sendOTP error:", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
-};
-
-/**
- * POST /auth/verify-otp
- * Body: { phone: string, otp: string }
- */
-export const verifyOTP = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { phone, otp } = req.body;
-
-        if (!phone || !otp) {
-            res.status(400).json({ message: "Phone and OTP are required" });
-            return;
-        }
-
-        // 1. Find the OTP document
-        const otpDoc = await OTP.findOne({ phone });
-
-        if (!otpDoc) {
-            res.status(400).json({
-                message: "OTP expired or was never sent. Please request a new one.",
-            });
-            return;
-        }
-
-        // 2. Check brute-force attempts
-        if (otpDoc.attempts >= MAX_VERIFY_ATTEMPTS) {
-            // Delete the OTP document to force a fresh request
-            await OTP.deleteOne({ _id: otpDoc._id });
-            res.status(429).json({
-                message: "Too many failed attempts. Please request a new OTP.",
-            });
-            return;
-        }
-
-        // 3. Compare submitted OTP against hash
-        const isMatch = await compareOTP(otp, otpDoc.otp);
-
-        if (!isMatch) {
-            // Increment attempts counter
-            await OTP.updateOne(
-                { _id: otpDoc._id },
-                { $inc: { attempts: 1 } }
-            );
-            res.status(401).json({
-                message: "Invalid OTP",
-                attemptsRemaining: MAX_VERIFY_ATTEMPTS - (otpDoc.attempts + 1),
-            });
-            return;
-        }
-
-        // 4. OTP is correct — delete the document
-        await OTP.deleteOne({ _id: otpDoc._id });
-
-        // 5. Find or create the user
-        let user = await User.findOne({ phone });
-        if (!user) {
-            user = await User.create({ phone });
-        }
-
-        // 6. Sign JWT
-        const token = signToken(user._id.toString());
-
-        res.status(200).json({
-            message: "Phone verified successfully",
-            token,
+    res.status(200).json(
+        new ApiResponse("Verification successful", {
+            token, 
+            isNewUser,
             user: {
-                _id: user._id,
-                phone: user.phone,
-                name: user.name,
-                avatar: user.avatar,
+                id: user!._id,
+                phone: user!.phone,
+                name: user!.name,
+                avatar: user!.avatar,
+                publicKey: user!.publicKey,
             },
-        });
-    } catch (error) {
-        console.error("verifyOTP error:", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
+        })
+    );
+  },
+
+  // POST /auth/refresh
+  // Issues a new token from a valid existing token.
+  // Useful when the client detects a token expiring soon.
+  async refreshToken(req:Request,res:Response):Promise<void> {
+    //req.user is set by authMiddleware
+    const user=req.user!;
+    const token = tokenService.sign(user._id,user.phone);
+
+    res.status(200).json(
+        new ApiResponse("Token refreshed", { token })
+    );
+  },
+
+  // GET /auth/me
+  // Returns the currently authenticated user's profile.
+  async getMe(req:Request,res:Response):Promise<void> {
+    const user = req.user;
+
+    res.status(200).json(
+        new ApiResponse("User fetched", {
+            id: user?._id,
+            phone: user?.phone,
+            name: user?.name,
+            avatar: user?.avatar,
+            publicKey: user?.publicKey,
+            lastSeen: user?.lastSeen,
+        })
+    );
+  }, 
 };
+

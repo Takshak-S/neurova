@@ -1,33 +1,26 @@
 import twilio from "twilio";
+import {env} from "../config/env";
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+// Wrap Twilio behind a service interface.
+// If we ever switch from Twilio to MSG91 or AWS SNS, we change this file only.
+// The rest of the codebase calls smsService.sendOTP() and doesn't know or care
+// which SMS provider is underneath.
 
-if (!accountSid || !authToken || !fromNumber) {
-    console.warn(
-        "WARNING: Twilio credentials not fully configured. SMS sending will fail."
-    );
-}
+const client = twilio(env.twilio.accountSid,env.twilio.authToken);
 
-const client = accountSid && authToken ? twilio(accountSid, authToken) : null;
+export const smsService = {
+    async sendOTP(phone:string,otp:string):Promise<void> {
+        // In development, skip the actual SMS and log to console.
+        // This avoids burning Twilio credits during local development.
+        if (!env.isProduction) {
+            console.log(`\n📱 [DEV] OTP for ${phone}: ${otp}\n`)
+            return;
+        }
 
-/**
- * Send an OTP via SMS using Twilio.
- */
-export const sendOTPviaSMS = async (
-    phone: string,
-    otp: string
-): Promise<void> => {
-    if (!client || !fromNumber) {
-        // In development, log the OTP instead of sending
-        console.log(`[DEV SMS] OTP for ${phone}: ${otp}`);
-        return;
-    }
-
-    await client.messages.create({
-        body: `Your Neurova verification code is: ${otp}. It expires in 5 minutes.`,
-        from: fromNumber,
-        to: phone,
-    });
+        await client.messages.create({
+            body:`Your Neurova verification code is ${otp}. Valid for ${env.otp.expiryMinutes} minutes. Do not share this code with anyone.`,
+            from: env.twilio.phoneNumber,
+            to:phone,
+        });
+    },
 };
