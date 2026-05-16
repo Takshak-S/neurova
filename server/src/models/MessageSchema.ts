@@ -1,7 +1,7 @@
 import mongoose,{Schema, Document, Types} from "mongoose";
 
 interface IReadReceipt {
-    type: Types.ObjectId;
+    userId: Types.ObjectId;
     readAt: Date;
 };
 
