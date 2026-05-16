@@ -3,7 +3,7 @@ import ConversationModel from "../../models/Conversation.model";
 import { ApiError } from "../../utils/ApiError";
 import { Types } from "mongoose";
 
-jest.mock("../../models/conversation.model");
+jest.mock("../../models/Conversation.model");
 
 const mockConversationModel = ConversationModel as jest.Mocked<typeof ConversationModel>;
 

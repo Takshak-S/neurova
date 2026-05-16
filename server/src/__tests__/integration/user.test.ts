@@ -66,7 +66,7 @@ describe("User REST endpoints", () => {
       const headers = await getAuthHeader(searcher._id, searcher.phone);
 
       const res = await request(app)
-        .get(`/api/v1/users/search?phone=${target.phone}`)
+        .get(`/api/v1/users/search?phone=${encodeURIComponent(target.phone)}`)
         .set(headers);
 
       expect(res.status).toBe(200);
@@ -80,7 +80,7 @@ describe("User REST endpoints", () => {
       const headers = await getAuthHeader(searcher._id, searcher.phone);
 
       const res = await request(app)
-        .get(`/api/v1/users/search?phone=${target.phone}`)
+        .get(`/api/v1/users/search?phone=${encodeURIComponent(target.phone)}`)
         .set(headers);
 
       const user = res.body.data.user;
