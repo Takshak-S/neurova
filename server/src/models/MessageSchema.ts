@@ -8,12 +8,12 @@ interface IReadReceipt {
 export interface IMessage extends Document {
     conversationId: Types.ObjectId;
     senderId: Types.ObjectId;
-    encryptedText: string;
-    iv: string;
+    encryptedText: string; //never plain text - always encypted
+    iv: string;             // required — cannot decrypt without it
     type: "text" | "image" | "file" | "voice";
     status: "sent" | "delivered" | "read";
-    readBy: IReadReceipt[];
-    isDeleted: boolean;
+    readBy: IReadReceipt[];  //group-aware read-receipts
+    isDeleted: boolean;     //soft delete
     createdAt: Date;
     updatedAt: Date;
 };
@@ -67,17 +67,17 @@ const MessageSchema = new Schema<IMessage>({
     }
 },
 {
-    timestamps: true
+    timestamps: true,
+    versionKey:false
 });
 
-// PRIMARY INDEX — most critical query: paginate messages in a conversation
-// -1 on createdAt because you almost always fetch newest-first
+// PRIMARY - paginate messages in a conversation newest-first
 MessageSchema.index({conversationId: 1, createdAt: -1});
 
-// For fetching undelivered messages on reconnect
+// Fetch undelivered messages on reconnect
 MessageSchema.index({conversationId: 1, status: 1});
 
-// For a sender's message history (e.g. "delete all my messages")
+// Sender message history
 MessageSchema.index({senderId: 1, createdAt: -1});
 
 

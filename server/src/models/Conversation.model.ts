@@ -1,8 +1,8 @@
 import mongoose,{Schema, Document, Types} from 'mongoose';
 
 interface ILastMessage {
-    encryptedPreview: string;
-    senderId: Types.ObjectId;
+    encryptedPreview: string; //encrypted - server never stores plain text
+    senderId: Types.ObjectId; 
     createdAt: Date;
 }
 
@@ -65,12 +65,14 @@ const ConversationSchema = new Schema<IConversation>({
     groupAvatar: String
 },
 {
-    timestamps: true
+    timestamps: true,
+    versionKey:false
 });
 
 // Primary query: "all conversations for this user" + filter by status
 ConversationSchema.index({members: 1});
 ConversationSchema.index({members: 1, status: 1});
+ConversationSchema.index({ members: 1, updatedAt: -1 }); // for sorted conversation list
 
 // Prevent duplicate direct conversations between the same two users
 // Partial filter ensures this only applies to direct type
