@@ -7,7 +7,7 @@ interface ILastMessage {
 }
 
 export interface IConversation extends Document {
-    members: Schema.Types.ObjectId[];
+    members: Types.ObjectId[];
     type: "direct" | "group";
     status: "pending" | "accepted" | "rejected";
     requestedBy: Types.ObjectId;
