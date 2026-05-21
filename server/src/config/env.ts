@@ -30,6 +30,16 @@ const envSchema = z.object({
     OTP_RATE_LIMIT_MAX_REQUESTS: z.string().default("5"),
 
     ALLOWED_ORIGINS: z.string().default("http://localhost:3000"),
+
+    AI_PROVIDER: z.string().default("ollama"),
+    GROQ_API_KEY: z.string().min(1,"GROQ_API_KEY is required"),
+    GROQ_MODEL: z.string().default("llama-3.1-8b-instant"),
+    OLLAMA_BASE_URL: z.string().default("http://localhost:11434"),
+    OLLAMA_MODEL: z.string().default("llama3.1"),
+    AI_MAX_TOKENS: z.string().default("1024"),
+    AI_TIMEOUT_MS: z.string().default("30000"),
+    AI_MAX_MESSAGES_FOR_SUMMARY: z.string().default("50"),
+    AI_MAX_MESSAGES_FOR_REPLY: z.string().default("5")
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -66,5 +76,22 @@ export const env = {
         rateLimitMaxRequests: parseInt(parsed.data.OTP_RATE_LIMIT_MAX_REQUESTS,10),
     },
 
+    ai:{
+        provider: parsed.data.AI_PROVIDER,
+        
+        maxMessagesForSummary: parseInt(parsed.data.AI_MAX_MESSAGES_FOR_SUMMARY),
+        maxMessagesForReply: parseInt(parsed.data.AI_MAX_MESSAGES_FOR_REPLY),
+        groq: {
+            apiKey: parsed.data.GROQ_API_KEY,
+            model: parsed.data.GROQ_MODEL
+        },
+        timeoutMs: parseInt(parsed.data.AI_TIMEOUT_MS),
+        maxTokens: parseInt(parsed.data.AI_MAX_TOKENS),
+        ollama: {
+            baseUrl: parsed.data.OLLAMA_BASE_URL,
+            model: parsed.data.OLLAMA_MODEL
+        },
+
+    },
     allowedOrigins: parsed.data.ALLOWED_ORIGINS.split(","),
 };

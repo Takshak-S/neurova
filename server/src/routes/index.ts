@@ -3,6 +3,7 @@ import authRoutes from "./auth.routes";
 import userRoutes from "./user.routes";
 import messageRoutes from "./message.routes";
 import conversationRoutes from "./conversation.routes";
+import aiRoutes from "./ai.routes";
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.use("/auth",authRoutes);
 router.use("/users",userRoutes);
 router.use("/messages",messageRoutes);
 router.use("/conversations",conversationRoutes);
+router.use("/ai",aiRoutes);
 
 
 export default router;

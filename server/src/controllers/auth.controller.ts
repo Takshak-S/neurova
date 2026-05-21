@@ -44,7 +44,7 @@ export const authController = {
         { $setOnInsert : {phone}}, // only set phone on INSERT, not on UPDATE
         {
             upsert: true, // create if doesn't exist
-            new: true, // return the document after update
+            returnDocument: "after", // return the document after update
             setDefaultsOnInsert: true, // apply schema defaults on insert
         }
     );
